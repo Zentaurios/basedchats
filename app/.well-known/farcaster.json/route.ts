@@ -1,11 +1,21 @@
+// Well-known manifest endpoint for Farcaster discovery
+// This serves the same manifest as /api/farcaster/manifest
+// but at the standard /.well-known/farcaster.json location
+
 function withValidProperties(
-  properties: Record<string, undefined | string | string[]>,
+  properties: Record<string, undefined | string | string[] | boolean>,
 ) {
   return Object.fromEntries(
     Object.entries(properties).filter(([key, value]) => {
+      // Handle arrays - keep if non-empty
       if (Array.isArray(value)) {
         return value.length > 0;
       }
+      // Handle booleans - always keep (false is a valid value)
+      if (typeof value === 'boolean') {
+        return true;
+      }
+      // Handle strings - keep if truthy (not empty/undefined)
       return !!value;
     }),
   );
@@ -25,14 +35,14 @@ export async function GET() {
       name: process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME,
       subtitle: process.env.NEXT_PUBLIC_APP_SUBTITLE,
       description: process.env.NEXT_PUBLIC_APP_DESCRIPTION,
-      screenshotUrls: [],
+      screenshotUrls: process.env.NEXT_PUBLIC_APP_SCREENSHOT_URLS?.split(',').map(url => url.trim()).filter(Boolean),
       iconUrl: process.env.NEXT_PUBLIC_APP_ICON,
       splashImageUrl: process.env.NEXT_PUBLIC_APP_SPLASH_IMAGE,
       splashBackgroundColor: process.env.NEXT_PUBLIC_SPLASH_BACKGROUND_COLOR,
       homeUrl: URL,
       webhookUrl: `${URL}/api/webhook`,
       primaryCategory: process.env.NEXT_PUBLIC_APP_PRIMARY_CATEGORY,
-      tags: [],
+      tags: process.env.NEXT_PUBLIC_APP_TAGS?.split(',').map(tag => tag.trim()).filter(Boolean),
       heroImageUrl: process.env.NEXT_PUBLIC_APP_HERO_IMAGE,
       tagline: process.env.NEXT_PUBLIC_APP_TAGLINE,
       ogTitle: process.env.NEXT_PUBLIC_APP_OG_TITLE,

@@ -14,6 +14,10 @@
     "webhookUrl": "https://basedchats.vercel.app/api/webhook",
     "subtitle": "Connect. Share. Build.",
     "description": "Discover active group chats on the Base App, curated by the Base community. Find the best conversations and connect with like-minded people in the Base ecosystem.",
+    "screenshotUrls": [
+      "https://basedchats.vercel.app/images/screenshot1.png",
+      "https://basedchats.vercel.app/images/screenshot2.png"
+    ],
     "primaryCategory": "social",
     "tags": [
       "base",
