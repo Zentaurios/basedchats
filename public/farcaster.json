@@ -1,0 +1,36 @@
+{
+  "accountAssociation": {
+    "header": "",
+    "payload": "",
+    "signature": ""
+  },
+  "frame": {
+    "version": "1",
+    "name": "BasedChats",
+    "iconUrl": "https://base.org/icons/icon-512x512.png",
+    "splashImageUrl": "https://base.org/icons/icon-512x512.png",
+    "splashBackgroundColor": "#0000ff",
+    "homeUrl": "https://base-welcome.vercel.app",
+    "webhookUrl": "https://base-welcome.vercel.app/api/webhook",
+    "subtitle": "Find and join Group Chats on the Base App",
+    "description": "Discover active group chats on the Base App, curated by the Base community. Find the best conversations and connect with like-minded people in the Base ecosystem.",
+    "screenshotUrls": [
+      "https://base-welcome.vercel.app/screenshot1.png",
+      "https://base-welcome.vercel.app/screenshot2.png"
+    ],
+    "primaryCategory": "social",
+    "tags": [
+      "base",
+      "farcaster",
+      "chat",
+      "social",
+      "community"
+    ],
+    "heroImageUrl": "https://base-welcome.vercel.app/og.png",
+    "tagline": "Base is for [ everything ]",
+    "ogTitle": "BasedChats - Curated Group Chats",
+    "ogDescription": "Discover active group chats on Farcaster, curated by the Base community.",
+    "ogImageUrl": "https://base-welcome.vercel.app/og.png",
+    "noindex": true
+  }
+}
