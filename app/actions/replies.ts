@@ -29,22 +29,38 @@ export async function initializeFarcasterAuth(fid: number): Promise<{
   error?: string;
 }> {
   try {
-    // Get user info first
-    const user = await getUserByFid(fid);
-    if (!user) {
-      return { success: false, error: 'User not found' };
+    console.log('Initializing Farcaster auth for FID:', fid);
+    
+    // Check if Neynar API key is available
+    if (!process.env.NEYNAR_API_KEY) {
+      console.error('Neynar API key not configured');
+      return { success: false, error: 'Authentication service not configured' };
     }
 
+    // Get user info first
+    console.log('Getting user info for FID:', fid);
+    const user = await getUserByFid(fid);
+    if (!user) {
+      console.error('User not found for FID:', fid);
+      return { success: false, error: 'User not found' };
+    }
+    console.log('User found:', user.username);
+
     // Check if user already has a signer
+    console.log('Checking existing signer for FID:', fid);
     const signer = await getUserSigner(fid);
     
     if (signer) {
+      console.log('Existing signer found, checking status:', signer.signerUuid);
       // Check current status
       const status = await checkSignerStatus(signer.signerUuid);
+      console.log('Signer status:', status);
       
       if (status === 'approved') {
+        console.log('Signer already approved');
         return { success: true, user };
       } else if (status === 'pending') {
+        console.log('Signer pending approval');
         return { 
           success: false, 
           requiresApproval: true,
@@ -53,13 +69,17 @@ export async function initializeFarcasterAuth(fid: number): Promise<{
         };
       }
       // If revoked or failed, create new signer below
+      console.log('Signer status not approved/pending, creating new signer');
     }
 
     // Create new signer
+    console.log('Creating new signer for FID:', fid);
     const newSignerData = await createSigner();
     if (!newSignerData) {
-      return { success: false, error: 'Failed to create signer' };
+      console.error('Failed to create signer - no data returned');
+      return { success: false, error: 'Failed to create signer. Please try again.' };
     }
+    console.log('New signer created:', newSignerData.signerUuid);
 
     // Store signer info
     const newSigner: UserSigner = {
@@ -70,7 +90,13 @@ export async function initializeFarcasterAuth(fid: number): Promise<{
       createdAt: Date.now()
     };
 
-    await storeUserSigner(fid, newSigner);
+    console.log('Storing signer info for FID:', fid);
+    const storeResult = await storeUserSigner(fid, newSigner);
+    if (!storeResult) {
+      console.error('Failed to store signer info');
+      return { success: false, error: 'Failed to save authentication info. Please try again.' };
+    }
+    console.log('Signer stored successfully');
 
     return {
       success: false,
@@ -83,7 +109,7 @@ export async function initializeFarcasterAuth(fid: number): Promise<{
     console.error('Failed to initialize Farcaster auth:', error);
     return { 
       success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error occurred. Please try again.' 
     };
   }
 }

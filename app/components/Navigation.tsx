@@ -1,13 +1,59 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAccount } from "wagmi";
+import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { ThemeToggle } from "./ui/ThemeToggle";
 import { NavigationProps } from "../../lib/types";
 import { cn } from "../../lib/cn";
+import { checkAddressAuthorization } from "../admin/actions/auth";
 
 export function Navigation({ isAdmin }: NavigationProps) {
   const pathname = usePathname();
+  const { address } = useAccount();
+  const { context } = useMiniKit();
+  const [isUserAdmin, setIsUserAdmin] = React.useState(isAdmin);
+  
+  // Check if user is admin based on their wallet address or Base App context
+  React.useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (isAdmin) {
+        setIsUserAdmin(true);
+        return;
+      }
+      
+      // Debug: Log context structure to understand available properties
+      if (context?.user) {
+        console.log('Base App user context:', context.user);
+      }
+      
+      let addressToCheck: string | null = null;
+      
+      // Primary method: Check connected wallet address
+      if (address) {
+        addressToCheck = address;
+        console.log('Checking admin status for wallet address:', address);
+      }
+      
+      if (addressToCheck) {
+        try {
+          const result = await checkAddressAuthorization(addressToCheck);
+          console.log('Admin check result:', result);
+          setIsUserAdmin(result.isAuthorized);
+        } catch (error) {
+          console.error('Failed to check admin status:', error);
+          setIsUserAdmin(false);
+        }
+      } else {
+        console.log('No address available for admin check');
+        setIsUserAdmin(false);
+      }
+    };
+    
+    checkAdminStatus();
+  }, [isAdmin, address, context?.user]);
 
   const navItems = [
     {
@@ -30,7 +76,7 @@ export function Navigation({ isAdmin }: NavigationProps) {
         </svg>
       )
     },
-    ...(isAdmin ? [{
+    ...(isUserAdmin ? [{
       href: "/admin",
       label: "Admin",
       description: "Manage casts",

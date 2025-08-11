@@ -29,6 +29,7 @@ export async function createSigner(): Promise<{ signerUuid: string; publicKey: s
   }
 
   try {
+    console.log('Making request to Neynar API to create signer');
     const response = await fetch('https://api.neynar.com/v2/farcaster/signer', {
       method: 'POST',
       headers: {
@@ -37,12 +38,24 @@ export async function createSigner(): Promise<{ signerUuid: string; publicKey: s
       }
     });
 
+    console.log('Neynar API response status:', response.status);
+    
     if (!response.ok) {
-      console.error('Failed to create signer:', response.status);
+      const errorText = await response.text();
+      console.error('Failed to create signer:', response.status, errorText);
       return null;
     }
 
     const data = await response.json();
+    console.log('Signer creation response:', { 
+      signerUuid: data.signer_uuid, 
+      hasApprovalUrl: !!data.signer_approval_url 
+    });
+    
+    if (!data.signer_uuid || !data.public_key || !data.signer_approval_url) {
+      console.error('Invalid response from Neynar API:', data);
+      return null;
+    }
     
     return {
       signerUuid: data.signer_uuid,

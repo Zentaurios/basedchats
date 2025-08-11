@@ -164,7 +164,7 @@ export function ReplyComposer({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-80 border border-gray-15 dark:border-gray-60 shadow-lg">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Reply to Cast</CardTitle>
