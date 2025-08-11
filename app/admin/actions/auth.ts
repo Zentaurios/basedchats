@@ -48,18 +48,106 @@ export async function verifyAdminSignature(
     // 🔐 SECURE: Verify the signature
     let isValidSignature: boolean
     try {
+      // Validate and normalize inputs
+      console.log('Verifying signature for address:', address);
+      console.log('Signature length:', signature.length);
+      console.log('Signature starts with 0x:', signature.startsWith('0x'));
+      console.log('Message:', message);
+      
+      // Ensure address is properly formatted
+      const normalizedAddress = address.toLowerCase().startsWith('0x') 
+        ? address.toLowerCase() 
+        : `0x${address.toLowerCase()}`;
+      
+      // Ensure signature is properly formatted
+      let normalizedSignature = signature;
+      if (!normalizedSignature.startsWith('0x')) {
+        normalizedSignature = `0x${normalizedSignature}`;
+      }
+      
+      // Handle different signature formats
+      // Some wallets return signatures with different lengths
+      if (normalizedSignature.length === 130) {
+        // Missing 0x prefix, add it
+        normalizedSignature = `0x${signature}`;
+      } else if (normalizedSignature.length === 131) {
+        // Some edge case with odd length
+        normalizedSignature = `0x0${signature.replace('0x', '')}`;
+      }
+      
+      // Special handling for different wallet signature formats
+      // Some wallets may return shorter signatures that need padding
+      if (normalizedSignature.length < 132) {
+        console.warn('Signature shorter than expected:', normalizedSignature.length);
+        // Try to handle by ensuring it's properly formatted
+        const sigWithoutPrefix = normalizedSignature.replace('0x', '');
+        if (sigWithoutPrefix.length === 128) {
+          // Standard case: just add 0x
+          normalizedSignature = `0x${sigWithoutPrefix}`;
+        } else if (sigWithoutPrefix.length === 130) {
+          // Already correct length
+          normalizedSignature = `0x${sigWithoutPrefix}`;
+        } else if (sigWithoutPrefix.length < 130) {
+          // Pad with zeros if needed (though this is unusual)
+          normalizedSignature = `0x${sigWithoutPrefix.padStart(130, '0')}`;
+        }
+      }
+      
+      // Handle cases where signature might have wrong v value
+      // Sometimes signatures come with v=27/28 encoded differently
+      if (normalizedSignature.length > 132) {
+        console.warn('Signature longer than expected:', normalizedSignature.length);
+        // Truncate to standard length
+        const sigWithoutPrefix = normalizedSignature.replace('0x', '');
+        if (sigWithoutPrefix.length > 130) {
+          normalizedSignature = `0x${sigWithoutPrefix.slice(0, 130)}`;
+        }
+      }
+      
+      // Validate signature length (should be 132 characters including 0x prefix)
+      if (normalizedSignature.length !== 132) {
+        console.error('Invalid signature length:', normalizedSignature.length, 'expected 132');
+        console.error('Original signature:', signature);
+        console.error('Normalized signature:', normalizedSignature);
+        throw new Error(`Invalid signature length: ${normalizedSignature.length} (expected 132). This may be a wallet compatibility issue.`);
+      }
+      
+      // Validate address format
+      if (normalizedAddress.length !== 42) {
+        console.error('Invalid address length:', normalizedAddress.length, 'expected 42');
+        throw new Error(`Invalid address length: ${normalizedAddress.length}`);
+      }
+      
+      console.log('Normalized address:', normalizedAddress);
+      console.log('Normalized signature length:', normalizedSignature.length);
+      
       isValidSignature = await verifyMessage({
-        address: address as `0x${string}`,
+        address: normalizedAddress as `0x${string}`,
         message,
-        signature: signature as `0x${string}`
+        signature: normalizedSignature as `0x${string}`
       })
+      
+      console.log('Signature verification result:', isValidSignature);
     } catch (error) {
-      console.error('Signature verification error:', error)
+      console.error('Signature verification error:', error);
       // 🚨 ONLY NOW count this as a failed attempt (after actual failure)
       checkAuthFailureRateLimit(clientIp)
+      
+      // Provide more specific error messages
+      let errorMessage = 'Invalid signature format';
+      if (error instanceof Error) {
+        if (error.message.includes('Invalid signature length')) {
+          errorMessage = 'Signature format error. Please try a different wallet or refresh the page.';
+        } else if (error.message.includes('Invalid address length')) {
+          errorMessage = 'Address format error. Please reconnect your wallet.';
+        } else if (error.message.toLowerCase().includes('signature')) {
+          errorMessage = 'Signature verification failed. Please try signing again.';
+        }
+      }
+      
       return {
         success: false,
-        error: 'Invalid signature format'
+        error: errorMessage
       }
     }
 

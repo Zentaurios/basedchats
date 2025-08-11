@@ -265,7 +265,7 @@ export function ReplyComposer({
                   Reply functionality requires authorization
                 </p>
                 <p className="text-xs text-blue-700 dark:text-blue-300">
-                  Note: This feature requires a paid Neynar plan. If you're using the free tier, you'll see a payment error.
+                  Note: This feature requires a paid Neynar plan. If you&apos;re using the free tier, you&apos;ll see a payment error.
                 </p>
               </div>
               <div className="flex space-x-2">

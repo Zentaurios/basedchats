@@ -227,7 +227,7 @@ export async function postCastReply(
 /**
  * Debug function to test Neynar API connectivity
  */
-export async function testNeynarConnection(): Promise<{ success: boolean; error?: string; details?: any }> {
+export async function testNeynarConnection(): Promise<{ success: boolean; error?: string; details?: unknown }> {
   const neynarApiKey = process.env.NEYNAR_API_KEY;
   
   if (!neynarApiKey) {
