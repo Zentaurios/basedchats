@@ -159,7 +159,7 @@ export function AppClient({ initialCasts }: AppClientProps) {
               className="text-muted-foreground hover:text-foreground"
               onClick={() => openUrl("https://base4everything.xyz/")}
             >
-              Base is for [ Everything ]
+              Base is for{' '}<span className="inline-block whitespace-nowrap">[ Everything ]</span>
             </Button>
           </div>
         </footer>
