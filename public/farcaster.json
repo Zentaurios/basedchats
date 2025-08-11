@@ -12,7 +12,7 @@
     "splashBackgroundColor": "#0000ff",
     "homeUrl": "https://basedchats.vercel.app",
     "webhookUrl": "https://basedchats.vercel.app/api/webhook",
-    "subtitle": "Find and join Group Chats on the Base App",
+    "subtitle": "Connect. Share. Build Together.",
     "description": "Discover active group chats on the Base App, curated by the Base community. Find the best conversations and connect with like-minded people in the Base ecosystem.",
     "primaryCategory": "social",
     "tags": [
