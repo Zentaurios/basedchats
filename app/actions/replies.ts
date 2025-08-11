@@ -10,9 +10,14 @@ export async function testEnvironmentAction(): Promise<{
   success: boolean;
   neynar: { configured: boolean; working?: boolean; error?: string; planLimitation?: boolean };
   redis: { configured: boolean; working?: boolean; error?: string };
-  details?: any;
+  details?: unknown;
 }> {
-  const results = {
+  const results: {
+    success: boolean;
+    neynar: { configured: boolean; working?: boolean; error?: string; planLimitation?: boolean };
+    redis: { configured: boolean; working?: boolean; error?: string };
+    details?: unknown;
+  } = {
     success: false,
     neynar: { configured: false },
     redis: { configured: false }
@@ -57,7 +62,7 @@ export async function testEnvironmentAction(): Promise<{
     results.redis.error = error instanceof Error ? error.message : 'Unknown error';
   }
 
-  results.success = results.neynar.working && results.redis.working;
+  results.success = !!results.neynar.working && !!results.redis.working;
   return results;
 }
 

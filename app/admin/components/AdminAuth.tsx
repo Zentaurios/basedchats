@@ -88,15 +88,37 @@ export function AdminAuth({ onAuthSuccess }: AdminAuthProps) {
       }
     } catch (error: unknown) {
       console.error('Authentication error:', error)
-      if (error instanceof Error && error.name === 'UserRejectedRequestError') {
-        setError('Please sign the message to authenticate')
-      } else {
-        setError('Authentication failed. Please try again.')
+      
+      // Enhanced error handling with more specific messages
+      let errorMessage = 'Authentication failed. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.name === 'UserRejectedRequestError') {
+          errorMessage = 'Please sign the message to authenticate';
+        } else if (error.message.includes('Signature format error')) {
+          errorMessage = 'Wallet signature issue. Try disconnecting and reconnecting your wallet.';
+        } else if (error.message.includes('Invalid signature length')) {
+          errorMessage = 'Signature compatibility issue. This wallet may not be fully supported. Try a different wallet.';
+        } else if (error.message.includes('verification failed')) {
+          errorMessage = 'Signature verification failed. Please try signing the message again.';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        }
+        
+        // Log detailed error info for debugging
+        console.log('Error details:', {
+          name: error.name,
+          message: error.message,
+          address: address,
+          walletConnected: isConnected
+        });
       }
+      
+      setError(errorMessage);
     } finally {
       setIsAuthenticating(false)
     }
-  }, [address, signMessageAsync, onAuthSuccess, isAuthorized])
+  }, [address, signMessageAsync, onAuthSuccess, isAuthorized, isConnected])
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
