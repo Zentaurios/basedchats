@@ -1,6 +1,65 @@
 'use server'
 
-import { createSigner, checkSignerStatus, getUserByFid, postCastReply, storeUserSigner, getUserSigner, updateSignerStatus, FarcasterUser, UserSigner } from '../../lib/farcaster-auth'
+import { createSigner, checkSignerStatus, getUserByFid, postCastReply, storeUserSigner, getUserSigner, updateSignerStatus, FarcasterUser, UserSigner, testNeynarConnection } from '../../lib/farcaster-auth'
+import { redis } from '../../lib/redis'
+
+/**
+ * Test environment configuration
+ */
+export async function testEnvironmentAction(): Promise<{
+  success: boolean;
+  neynar: { configured: boolean; working?: boolean; error?: string; planLimitation?: boolean };
+  redis: { configured: boolean; working?: boolean; error?: string };
+  details?: any;
+}> {
+  const results = {
+    success: false,
+    neynar: { configured: false },
+    redis: { configured: false }
+  };
+
+  // Test Neynar API
+  try {
+    results.neynar.configured = !!process.env.NEYNAR_API_KEY;
+    if (results.neynar.configured) {
+      const neynarTest = await testNeynarConnection();
+      results.neynar.working = neynarTest.success;
+      if (!neynarTest.success) {
+        results.neynar.error = neynarTest.error;
+      }
+      
+      // Test signer creation to check for plan limitations
+      if (neynarTest.success) {
+        try {
+          await createSigner();
+        } catch (error) {
+          if (error instanceof Error && error.message.includes('PAYMENT_REQUIRED')) {
+            results.neynar.planLimitation = true;
+            results.neynar.error = 'Paid plan required for signer creation';
+          }
+        }
+      }
+    }
+  } catch (error) {
+    results.neynar.error = error instanceof Error ? error.message : 'Unknown error';
+  }
+
+  // Test Redis
+  try {
+    results.redis.configured = !!redis;
+    if (redis) {
+      await redis.set('test-key', 'test-value');
+      const testValue = await redis.get('test-key');
+      results.redis.working = testValue === 'test-value';
+      await redis.del('test-key'); // Clean up
+    }
+  } catch (error) {
+    results.redis.error = error instanceof Error ? error.message : 'Unknown error';
+  }
+
+  results.success = results.neynar.working && results.redis.working;
+  return results;
+}
 
 export interface ReplyResult {
   success: boolean;
@@ -74,36 +133,54 @@ export async function initializeFarcasterAuth(fid: number): Promise<{
 
     // Create new signer
     console.log('Creating new signer for FID:', fid);
-    const newSignerData = await createSigner();
-    if (!newSignerData) {
-      console.error('Failed to create signer - no data returned');
-      return { success: false, error: 'Failed to create signer. Please try again.' };
+    try {
+      const newSignerData = await createSigner();
+      if (!newSignerData) {
+        console.error('Failed to create signer - no data returned');
+        return { success: false, error: 'Failed to create signer. Please try again.' };
+      }
+      console.log('New signer created:', newSignerData.signerUuid);
+      
+      // Store signer info
+      const newSigner: UserSigner = {
+        fid,
+        signerUuid: newSignerData.signerUuid,
+        publicKey: newSignerData.publicKey,
+        status: 'pending',
+        createdAt: Date.now()
+      };
+
+      console.log('Storing signer info for FID:', fid);
+      const storeResult = await storeUserSigner(fid, newSigner);
+      if (!storeResult) {
+        console.error('Failed to store signer info');
+        return { success: false, error: 'Failed to save authentication info. Please try again.' };
+      }
+      console.log('Signer stored successfully');
+
+      return {
+        success: false,
+        requiresApproval: true,
+        approvalUrl: newSignerData.deepLinkUrl,
+        user
+      };
+      
+    } catch (signerError) {
+      console.error('Signer creation error:', signerError);
+      
+      // Handle payment required error specifically
+      if (signerError instanceof Error && signerError.message.includes('PAYMENT_REQUIRED')) {
+        return { 
+          success: false, 
+          error: 'Reply functionality requires a paid Neynar plan. This feature is currently unavailable.' 
+        };
+      }
+      
+      return { 
+        success: false, 
+        error: 'Failed to create authentication signer. Please try again.' 
+      };
     }
-    console.log('New signer created:', newSignerData.signerUuid);
-
-    // Store signer info
-    const newSigner: UserSigner = {
-      fid,
-      signerUuid: newSignerData.signerUuid,
-      publicKey: newSignerData.publicKey,
-      status: 'pending',
-      createdAt: Date.now()
-    };
-
-    console.log('Storing signer info for FID:', fid);
-    const storeResult = await storeUserSigner(fid, newSigner);
-    if (!storeResult) {
-      console.error('Failed to store signer info');
-      return { success: false, error: 'Failed to save authentication info. Please try again.' };
-    }
-    console.log('Signer stored successfully');
-
-    return {
-      success: false,
-      requiresApproval: true,
-      approvalUrl: newSignerData.deepLinkUrl,
-      user
-    };
 
   } catch (error) {
     console.error('Failed to initialize Farcaster auth:', error);

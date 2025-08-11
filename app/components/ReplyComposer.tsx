@@ -7,7 +7,7 @@ import { useOpenUrl } from '@coinbase/onchainkit/minikit';
 import Image from 'next/image';
 import { EnrichedCast } from '../../lib/cast-enrichment';
 import { FarcasterUser } from '../../lib/farcaster-auth';
-import { postReplyAction, initializeFarcasterAuth, checkUserSignerStatus, getUserProfileAction } from '../actions/replies';
+import { postReplyAction, initializeFarcasterAuth, checkUserSignerStatus, getUserProfileAction, testEnvironmentAction } from '../actions/replies';
 
 interface ReplyComposerProps {
   cast: EnrichedCast;
@@ -31,6 +31,7 @@ export function ReplyComposer({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [approvalUrl, setApprovalUrl] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
   const openUrl = useOpenUrl();
 
@@ -79,6 +80,7 @@ export function ReplyComposer({
       setReplyText('');
       setError(null);
       setSuccess(false);
+      setDebugInfo(null);
     }
   }, [isOpen]);
 
@@ -109,6 +111,14 @@ export function ReplyComposer({
       setError('Failed to initialize authentication');
     } finally {
       setIsPosting(false);
+    }
+  };
+
+  const handleOpenApproval = () => {
+    if (approvalUrl) {
+      openUrl(approvalUrl);
+    } else {
+      openUrl('https://warpcast.com/~/signer-requests');
     }
   };
 
@@ -149,11 +159,45 @@ export function ReplyComposer({
     }
   };
 
-  const handleOpenApproval = () => {
-    if (approvalUrl) {
-      openUrl(approvalUrl);
-    } else {
-      openUrl('https://warpcast.com/~/signer-requests');
+  const handleTestEnvironment = async () => {
+    try {
+      const results = await testEnvironmentAction();
+      console.log('Environment test results:', results);
+      
+      let debugMessage = 'Environment Test:\n';
+      debugMessage += `Neynar API: ${results.neynar.configured ? 'Configured' : 'Not configured'}`;
+      if (results.neynar.configured) {
+        debugMessage += ` - ${results.neynar.working ? 'Working' : 'Failed'}`;
+        if (results.neynar.planLimitation) {
+          debugMessage += ' (Free plan - paid features unavailable)';
+        }
+        if (results.neynar.error && !results.neynar.planLimitation) {
+          debugMessage += ` (${results.neynar.error})`;
+        }
+      }
+      debugMessage += '\n';
+      debugMessage += `Redis: ${results.redis.configured ? 'Configured' : 'Not configured'}`;
+      if (results.redis.configured) {
+        debugMessage += ` - ${results.redis.working ? 'Working' : 'Failed'}`;
+        if (results.redis.error) {
+          debugMessage += ` (${results.redis.error})`;
+        }
+      }
+      
+      if (results.neynar.planLimitation) {
+        debugMessage += '\n\nℹ️ To enable replies, upgrade to a paid Neynar plan at https://neynar.com/#pricing';
+      }
+      
+      setDebugInfo(debugMessage);
+      
+      if (!results.success && !results.neynar.planLimitation) {
+        setError('Environment configuration issues detected. Check console for details.');
+      } else if (results.neynar.planLimitation) {
+        setError('Reply functionality requires a paid Neynar plan.');
+      }
+    } catch (error) {
+      console.error('Failed to test environment:', error);
+      setError('Failed to test environment configuration');
     }
   };
 
@@ -164,7 +208,7 @@ export function ReplyComposer({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-80 border border-gray-15 dark:border-gray-60 shadow-lg">
+      <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-card border-border shadow-lg">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Reply to Cast</CardTitle>
@@ -185,7 +229,7 @@ export function ReplyComposer({
         <CardContent className="space-y-4">
           {/* User FID Check */}
           {!userFid ? (
-            <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            <div className="p-3 bg-yellow-50/80 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-card-foreground">
               <p className="text-sm text-yellow-800 dark:text-yellow-200">
                 Please sign in to Base App to reply to casts.
               </p>
@@ -193,7 +237,7 @@ export function ReplyComposer({
           ) : (
             <>
               {/* Original Cast Preview */}
-              <div className="bg-gray-10/50 dark:bg-gray-80/30 p-3 rounded-lg">
+              <div className="bg-muted/50 p-3 rounded-lg">
                 <div className="flex items-start space-x-2">
                   {cast.metadata?.authorPfp && (
                     <Image
@@ -216,18 +260,32 @@ export function ReplyComposer({
           {/* Authentication Status */}
           {authStatus === 'needs_init' && (
             <div className="space-y-3">
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  To reply, you need to authorize this app to post on your behalf.
+              <div className="p-3 bg-blue-50/80 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-card-foreground">
+                <p className="text-sm text-blue-800 dark:text-blue-200 font-medium mb-2">
+                  Reply functionality requires authorization
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  Note: This feature requires a paid Neynar plan. If you're using the free tier, you'll see a payment error.
                 </p>
               </div>
-              <Button
-                onClick={handleInitializeAuth}
-                loading={isPosting}
-                className="w-full"
-              >
-                Authorize Posting
-              </Button>
+              <div className="flex space-x-2">
+                <Button
+                  onClick={handleInitializeAuth}
+                  loading={isPosting}
+                  className="flex-1"
+                >
+                  Try Authorization
+                </Button>
+                <Button
+                  onClick={handleTestEnvironment}
+                  variant="secondary"
+                  size="sm"
+                  className="px-2"
+                  title="Test environment configuration"
+                >
+                  🔧
+                </Button>
+              </div>
             </div>
           )}
 
@@ -287,7 +345,7 @@ export function ReplyComposer({
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   placeholder="Write your reply..."
-                  className="w-full min-h-[100px] p-3 border border-gray-15 dark:border-gray-80 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-base-blue bg-white dark:bg-gray-80 text-foreground"
+                  className="w-full min-h-[100px] p-3 border border-input rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-ring bg-background text-foreground"
                   maxLength={maxLength}
                 />
                 <div className="flex justify-between items-center text-xs">
@@ -313,6 +371,15 @@ export function ReplyComposer({
             <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
               <p className="text-sm text-green-800 dark:text-green-200">
                 ✅ Reply posted successfully! Closing...
+              </p>
+            </div>
+          )}
+
+          {/* Debug Info */}
+          {debugInfo && (
+            <div className="p-3 bg-muted/50 border border-border rounded-lg">
+              <p className="text-xs font-mono text-muted-foreground whitespace-pre-line">
+                {debugInfo}
               </p>
             </div>
           )}

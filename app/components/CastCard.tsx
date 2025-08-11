@@ -425,6 +425,7 @@ export function CastCard({
               size="sm"
               onClick={handleReply}
               className="text-xs px-3 py-1 h-auto"
+              title="Join group chat (requires paid Neynar plan)"
             >
               Request to Join
             </Button>

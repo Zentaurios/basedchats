@@ -43,6 +43,12 @@ export async function createSigner(): Promise<{ signerUuid: string; publicKey: s
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Failed to create signer:', response.status, errorText);
+      
+      // Handle specific error cases
+      if (response.status === 402) {
+        throw new Error('PAYMENT_REQUIRED: Signer creation requires a paid Neynar plan. Visit https://neynar.com/#pricing to upgrade.');
+      }
+      
       return null;
     }
 
@@ -65,6 +71,10 @@ export async function createSigner(): Promise<{ signerUuid: string; publicKey: s
 
   } catch (error) {
     console.error('Error creating signer:', error);
+    // Re-throw specific errors to be handled upstream
+    if (error instanceof Error && error.message.includes('PAYMENT_REQUIRED')) {
+      throw error;
+    }
     return null;
   }
 }
@@ -215,15 +225,59 @@ export async function postCastReply(
 }
 
 /**
+ * Debug function to test Neynar API connectivity
+ */
+export async function testNeynarConnection(): Promise<{ success: boolean; error?: string; details?: any }> {
+  const neynarApiKey = process.env.NEYNAR_API_KEY;
+  
+  if (!neynarApiKey) {
+    return { success: false, error: 'Neynar API key not configured' };
+  }
+
+  try {
+    // Test with a simple API call to check if the key works
+    const response = await fetch('https://api.neynar.com/v2/farcaster/user/bulk?fids=1', {
+      method: 'GET',
+      headers: {
+        'x-api-key': neynarApiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { 
+        success: false, 
+        error: `API test failed: ${response.status}`,
+        details: errorText
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      details: error
+    };
+  }
+}
+
+/**
  * Storage helpers for user signers (using Redis)
  */
 import { redis } from './redis';
 
 export async function storeUserSigner(fid: number, signer: UserSigner): Promise<boolean> {
-  if (!redis) return false;
-  
   try {
+    if (!redis) {
+      console.error('Redis not configured - cannot store user signer');
+      return false;
+    }
+    
+    console.log('Storing signer for FID:', fid, 'with UUID:', signer.signerUuid);
     await redis.set(`signer:${fid}`, JSON.stringify(signer));
+    console.log('Successfully stored signer for FID:', fid);
     return true;
   } catch (error) {
     console.error('Failed to store user signer:', error);
@@ -232,13 +286,22 @@ export async function storeUserSigner(fid: number, signer: UserSigner): Promise<
 }
 
 export async function getUserSigner(fid: number): Promise<UserSigner | null> {
-  if (!redis) return null;
-  
   try {
-    const data = await redis.get(`signer:${fid}`);
-    if (!data) return null;
+    if (!redis) {
+      console.warn('Redis not configured - cannot retrieve user signer');
+      return null;
+    }
     
-    return JSON.parse(data as string);
+    console.log('Getting signer for FID:', fid);
+    const data = await redis.get(`signer:${fid}`);
+    if (!data) {
+      console.log('No signer found for FID:', fid);
+      return null;
+    }
+    
+    const signer = JSON.parse(data as string);
+    console.log('Retrieved signer for FID:', fid, 'with UUID:', signer.signerUuid);
+    return signer;
   } catch (error) {
     console.error('Failed to get user signer:', error);
     return null;
