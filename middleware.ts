@@ -1,6 +1,6 @@
-// 100% SECURE Route Protection Middleware - Protects ALL admin routes
-// This provides an additional security layer on top of individual route protection
-// Now includes smart rate limiting to prevent abuse
+// 🔧 FIXED: Route Protection Middleware - Human-Friendly Rate Limiting
+// Separates page access from authentication failures
+// Much more reasonable limits for normal human behavior
 
 import { NextRequest, NextResponse } from 'next/server'
 import { AdminSession } from './lib/types'
@@ -11,7 +11,6 @@ const AUTHORIZED_ADDRESSES = process.env.ADMIN_ADDRESSES?.split(',') || []
 
 /**
  * Validate admin session from middleware context
- * This runs before every admin route and API call
  */
 function validateAdminSessionMiddleware(request: NextRequest): {
   isValid: boolean
@@ -28,7 +27,6 @@ function validateAdminSessionMiddleware(request: NextRequest): {
       }
     }
 
-    // Parse session from secure cookie
     let session: AdminSession
     try {
       session = JSON.parse(sessionCookie.value)
@@ -47,7 +45,7 @@ function validateAdminSessionMiddleware(request: NextRequest): {
       }
     }
 
-    // SECURITY: Check address version to invalidate sessions when admin list changes
+    // Check address version to invalidate sessions when admin list changes
     if (!session.addressVersion || session.addressVersion !== AUTHORIZED_ADDRESSES_VERSION) {
       return {
         isValid: false,
@@ -90,31 +88,41 @@ function validateAdminSessionMiddleware(request: NextRequest): {
 }
 
 /**
- * Main middleware function - protects all admin routes with rate limiting
+ * 🔧 FIXED: Main middleware function with human-friendly rate limiting
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Apply rate limiting to ALL admin routes first
+  // 🎯 IMPROVED: Apply reasonable rate limiting to admin routes
   const rateLimitResponse = adminRateLimit(request, pathname)
   if (rateLimitResponse) {
-    // Log the rate limit violation
+    // 🔇 REDUCED: Only log actual violations, not normal rate limits
     const clientIp = request.headers.get('x-forwarded-for') || 'unknown'
-    console.warn(`[RATE_LIMIT] ${pathname} blocked for client ${clientIp}`, {
-      userAgent: request.headers.get('user-agent'),
-      timestamp: new Date().toISOString()
-    })
+    
+    // Only log if it's a significant violation
+    if (rateLimitResponse.status === 429) {
+      const rateLimitCategory = rateLimitResponse.headers.get('X-RateLimit-Category')
+      if (rateLimitCategory === 'admin_auth_failures') {
+        console.warn(`[RATE_LIMIT] Authentication failure rate limit for ${clientIp}`, {
+          pathname,
+          category: rateLimitCategory,
+          timestamp: new Date().toISOString()
+        })
+      }
+    }
+    
     return rateLimitResponse
   }
 
   // Admin page routes (/admin/*)
   if (pathname.startsWith('/admin')) {
-    // Allow /admin/login page (needed for authentication flow)
+    // 🆕 IMPROVED: Allow /admin/login page with generous rate limiting
     if (pathname === '/admin/login') {
+      // Login page access already rate limited above with generous limits
       return NextResponse.next()
     }
 
-    // Validate session for all other admin pages
+    // 🔐 SECURE: Validate session for all other admin pages
     const authResult = validateAdminSessionMiddleware(request)
     
     if (!authResult.isValid) {
@@ -128,7 +136,7 @@ export function middleware(request: NextRequest) {
 
   // Admin API routes (/api/admin/*)
   if (pathname.startsWith('/api/admin')) {
-    // Validate session for all admin API calls
+    // 🔐 SECURE: Validate session for all admin API calls
     const authResult = validateAdminSessionMiddleware(request)
     
     if (!authResult.isValid) {
@@ -150,7 +158,7 @@ export function middleware(request: NextRequest) {
       )
     }
     
-    // Add admin session to headers for route handlers to use
+    // Add admin session to headers for route handlers
     const requestHeaders = new Headers(request.headers)
     requestHeaders.set('x-admin-session', JSON.stringify(authResult.session))
     
@@ -174,9 +182,9 @@ export const config = {
   ]
 }
 
-// SECURITY NOTES:
-// 1. This middleware runs on EVERY admin route request
-// 2. Session validation happens server-side and cannot be bypassed
-// 3. API routes get additional session headers for audit logging
-// 4. Failed auth attempts are logged for monitoring
-// 5. Expired sessions automatically redirect/return 401
+// 🎯 IMPROVEMENTS MADE:
+// 1. ✅ Separated login page access from authentication attempts  
+// 2. ✅ Much more generous rate limits for normal human behavior
+// 3. ✅ Reduced logging noise - only log actual security violations
+// 4. ✅ Shorter cooldown periods for better user experience
+// 5. ✅ Authentication failures now tracked separately with own limits

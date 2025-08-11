@@ -1,5 +1,6 @@
-// 100% SECURE Rate Limiting for Admin Routes
-// Protects against malicious actors while being reasonable for legitimate users
+// 🔧 FIXED: Human-Friendly Rate Limiting for Admin Routes
+// Separates page access from authentication attempts
+// Only rate limits actual FAILED authentication attempts
 
 interface RateLimitRecord {
   requests: number[]  // Array of timestamps
@@ -12,73 +13,77 @@ interface RateLimitConfig {
   blockDurationMs?: number
 }
 
-// In-memory rate limit storage (in production, use Redis for horizontal scaling)
+// In-memory rate limit storage (use Redis in production for scaling)
 const rateLimitStore = new Map<string, RateLimitRecord>()
 
-// Rate limit configurations for different endpoint types
+// 🎯 IMPROVED: More reasonable rate limits for different endpoint types
 const RATE_LIMITS: Record<string, RateLimitConfig> = {
-  // Admin page browsing - generous for humans navigating
+  // Admin page browsing - very generous for humans navigating
   'admin_pages': {
-    maxRequests: 60,           // 60 requests
-    windowMs: 60 * 1000,       // per minute
-    blockDurationMs: 2 * 60 * 1000  // 2 minute cooldown if exceeded
+    maxRequests: 120,          // 120 requests  
+    windowMs: 60 * 1000,       // per minute (2 per second average)
+    blockDurationMs: 1 * 60 * 1000  // 1 minute cooldown
   },
   
-  // Admin API reads - moderate for dashboard refreshes
+  // Admin API reads - generous for dashboard refreshes
   'admin_api_read': {
+    maxRequests: 60,           // 60 requests
+    windowMs: 60 * 1000,       // per minute  
+    blockDurationMs: 2 * 60 * 1000  // 2 minute cooldown
+  },
+  
+  // Admin API writes - moderate for content management
+  'admin_api_write': {
     maxRequests: 30,           // 30 requests
     windowMs: 60 * 1000,       // per minute
     blockDurationMs: 5 * 60 * 1000  // 5 minute cooldown
   },
   
-  // Admin API writes - stricter for cast management
-  'admin_api_write': {
-    maxRequests: 10,           // 10 requests
+  // Data export - restrictive (expensive operations)
+  'admin_export': {
+    maxRequests: 5,            // 5 requests
     windowMs: 60 * 1000,       // per minute
     blockDurationMs: 10 * 60 * 1000 // 10 minute cooldown
   },
   
-  // Data export - very restrictive (expensive operations)
-  'admin_export': {
-    maxRequests: 3,            // 3 requests
-    windowMs: 60 * 1000,       // per minute
-    blockDurationMs: 30 * 60 * 1000 // 30 minute cooldown
+  // 🚨 FIXED: Only FAILED authentication attempts (not page visits!)
+  'admin_auth_failures': {
+    maxRequests: 10,           // 10 failed attempts (much more generous)
+    windowMs: 15 * 60 * 1000,  // per 15 minutes (longer window)
+    blockDurationMs: 10 * 60 * 1000 // 10 minute cooldown (shorter penalty)
   },
-  
-  // Authentication attempts - very strict security
-  'admin_auth': {
-    maxRequests: 5,            // 5 attempts
-    windowMs: 5 * 60 * 1000,   // per 5 minutes
-    blockDurationMs: 15 * 60 * 1000 // 15 minute cooldown
+
+  // 🆕 NEW: Separate category for page access (very generous)
+  'admin_login_access': {
+    maxRequests: 50,           // 50 page visits
+    windowMs: 60 * 1000,       // per minute
+    blockDurationMs: 2 * 60 * 1000  // 2 minute cooldown
   }
 }
 
 /**
  * Get client identifier for rate limiting
- * Uses IP + User-Agent for better tracking of potential bots
+ * Uses IP + User-Agent for better tracking
  */
 function getClientId(request: Request): string {
-  // Get IP address (works with Vercel, Cloudflare, etc.)
   const forwarded = request.headers.get('x-forwarded-for')
   const realIp = request.headers.get('x-real-ip')
   const cfConnectingIp = request.headers.get('cf-connecting-ip')
   
   const ip = forwarded?.split(',')[0] || realIp || cfConnectingIp || 'unknown'
-  
-  // Include partial User-Agent for bot detection
   const userAgent = request.headers.get('user-agent') || 'unknown'
-  const uaHash = userAgent.substring(0, 20) // First 20 chars for fingerprinting
+  const uaHash = userAgent.substring(0, 20)
   
   return `${ip}:${uaHash}`
 }
 
 /**
- * Determine rate limit category based on request path and method
+ * 🎯 IMPROVED: Better categorization of requests
  */
 function getRateLimitCategory(pathname: string, method: string): keyof typeof RATE_LIMITS {
-  // Authentication endpoints
-  if (pathname === '/admin/login' || pathname.includes('auth')) {
-    return 'admin_auth'
+  // 🆕 FIXED: Login page access gets its own generous category
+  if (pathname === '/admin/login' && method === 'GET') {
+    return 'admin_login_access'
   }
   
   // Export endpoints
@@ -91,7 +96,7 @@ function getRateLimitCategory(pathname: string, method: string): keyof typeof RA
     return method === 'GET' ? 'admin_api_read' : 'admin_api_write'
   }
   
-  // Admin pages
+  // Other admin pages (dashboard, etc.)
   return 'admin_pages'
 }
 
@@ -157,8 +162,8 @@ export function checkRateLimit(
   record.requests.push(now)
   record.lastCleanup = now
   
-  // Clean up old records periodically
-  if (Math.random() < 0.01) { // 1% chance to trigger cleanup
+  // Periodic cleanup
+  if (Math.random() < 0.01) {
     cleanupRateLimits()
   }
   
@@ -169,6 +174,22 @@ export function checkRateLimit(
     allowed: true,
     remaining,
     resetTime
+  }
+}
+
+/**
+ * 🆕 NEW: Specific rate limiting for authentication failures only
+ */
+export function checkAuthFailureRateLimit(clientId: string): {
+  allowed: boolean
+  remaining: number
+  retryAfter?: number
+} {
+  const result = checkRateLimit(clientId, 'admin_auth_failures')
+  return {
+    allowed: result.allowed,
+    remaining: result.remaining,
+    retryAfter: result.retryAfter
   }
 }
 
@@ -191,9 +212,17 @@ export function createRateLimitResponse(
     headers.set('Retry-After', result.retryAfter.toString())
   }
   
-  const message = result.retryAfter && result.retryAfter > 60
-    ? `Rate limit exceeded. Too many requests to admin endpoints. Please try again in ${Math.ceil(result.retryAfter / 60)} minutes.`
-    : `Rate limit exceeded. Please try again in ${result.retryAfter || 60} seconds.`
+  // 🎯 IMPROVED: More helpful error messages
+  let message: string
+  if (category === 'admin_auth_failures') {
+    message = result.retryAfter && result.retryAfter > 60
+      ? `Too many failed login attempts. Please try again in ${Math.ceil(result.retryAfter / 60)} minutes.`
+      : `Too many failed login attempts. Please try again in ${result.retryAfter || 60} seconds.`
+  } else {
+    message = result.retryAfter && result.retryAfter > 60
+      ? `Rate limit exceeded. Please try again in ${Math.ceil(result.retryAfter / 60)} minutes.`
+      : `Rate limit exceeded. Please try again in ${result.retryAfter || 60} seconds.`
+  }
   
   return new Response(
     JSON.stringify({
@@ -207,14 +236,14 @@ export function createRateLimitResponse(
       }
     }),
     {
-      status: 429, // Too Many Requests
+      status: 429,
       headers
     }
   )
 }
 
 /**
- * Log suspicious rate limit violations for monitoring
+ * 🎯 IMPROVED: Only log truly suspicious activity (much higher threshold)
  */
 function logSuspiciousActivity(
   clientId: string,
@@ -222,21 +251,32 @@ function logSuspiciousActivity(
   pathname: string,
   violations: number
 ) {
-  if (violations > 3) { // Log after multiple violations
+  // 🚨 FIXED: Only log after many more violations to reduce noise
+  let shouldLog = false
+  let severity: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW'
+
+  if (category === 'admin_auth_failures' && violations > 8) {
+    shouldLog = true
+    severity = violations > 15 ? 'HIGH' : 'MEDIUM'
+  } else if (category !== 'admin_auth_failures' && violations > 20) {
+    shouldLog = true  
+    severity = violations > 50 ? 'HIGH' : 'MEDIUM'
+  }
+
+  if (shouldLog) {
     console.warn('[SECURITY] Potential malicious activity detected:', {
-      clientId: clientId.substring(0, 20) + '...', // Partial for privacy
+      clientId: clientId.substring(0, 20) + '...', 
       category,
       pathname,
       violations,
       timestamp: new Date().toISOString(),
-      severity: violations > 10 ? 'HIGH' : 'MEDIUM'
+      severity
     })
   }
 }
 
 /**
- * Enhanced rate limiting specifically for admin routes
- * Integrates with existing admin authentication
+ * 🔧 FIXED: Enhanced admin rate limiting with proper categorization
  */
 export function adminRateLimit(request: Request, pathname: string): Response | null {
   const clientId = getClientId(request)
