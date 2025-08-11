@@ -41,6 +41,7 @@ export function AdminPanelClient({ initialCasts, session }: AdminPanelClientProp
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleAddCast = () => {
     if (!newCastHash.trim()) {
@@ -181,11 +182,26 @@ export function AdminPanelClient({ initialCasts, session }: AdminPanelClientProp
     })
   }
 
+  // 🔧 IMPROVED: Better logout handling with user feedback
   const handleLogout = async () => {
     try {
+      setIsLoggingOut(true)
+      setError(null)
+      setSuccess(null)
+      
+      // Show immediate feedback
+      setSuccess('Logging out...')
+      
+      // Call the server action to clear session and redirect
       await logoutAdmin()
+      
+      // If we reach here, something went wrong with the redirect
+      setError('Logout completed but redirect failed. Please refresh the page.')
+      
     } catch (error) {
       console.error('Logout failed:', error)
+      setError('Logout failed. Please try refreshing the page.')
+      setIsLoggingOut(false)
     }
   }
 
@@ -281,9 +297,11 @@ export function AdminPanelClient({ initialCasts, session }: AdminPanelClientProp
             onClick={handleLogout}
             variant="ghost"
             size="sm"
+            loading={isLoggingOut}
+            disabled={isLoggingOut}
             className="text-xs px-3 py-2"
           >
-            Logout
+            {isLoggingOut ? 'Logging out...' : 'Logout'}
           </Button>
         </div>
       </div>

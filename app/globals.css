@@ -2,110 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Base Brand Kit Color System */
 :root {
-  /* Light theme - Base Brand Kit colors */
-  --background: #ffffff;
-  --foreground: #0a0b0d;
-  --primary: #0000ff; /* Base Blue */
-  --primary-foreground: #ffffff;
-  --secondary: #eef0f3; /* Gray 10 */
-  --secondary-foreground: #0a0b0d;
-  --muted: #dee1e7; /* Gray 15 */
-  --muted-foreground: #5b616e; /* Gray 60 */
-  --border: #b1b7c3; /* Gray 30 */
-  --input: #eef0f3; /* Gray 10 */
-  --card: #ffffff;
-  --card-foreground: #0a0b0d;
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 240 100% 50%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222.2 84% 4.9%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222.2 84% 4.9%;
+  --destructive: 0 72.22% 50.59%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 240 100% 50%;
+  --radius: 0.5rem;
 }
 
 .dark {
-  /* Dark theme - Base Brand Kit colors */
-  --background: #0a0b0d; /* Gray 100 */
-  --foreground: #ffffff;
-  --primary: #0000ff; /* Base Blue */
-  --primary-foreground: #ffffff;
-  --secondary: #32353d; /* Gray 80 */
-  --secondary-foreground: #ffffff;
-  --muted: #5b616e; /* Gray 60 */
-  --muted-foreground: #b1b7c3; /* Gray 30 */
-  --border: #717886; /* Gray 50 */
-  --input: #32353d; /* Gray 80 */
-  --card: #32353d; /* Gray 80 */
-  --card-foreground: #ffffff;
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 240 100% 50%;
+  --primary-foreground: 222.2 84% 4.9%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 240 100% 50%;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    --background: #0a0b0d;
-    --foreground: #ffffff;
-    --primary: #0000ff;
-    --primary-foreground: #ffffff;
-    --secondary: #32353d;
-    --secondary-foreground: #ffffff;
-    --muted: #5b616e;
-    --muted-foreground: #b1b7c3;
-    --border: #717886;
-    --input: #32353d;
-    --card: #32353d;
-    --card-foreground: #ffffff;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Inter", system-ui, sans-serif;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: "Geist", sans-serif;
-  font-optical-sizing: auto;
-  font-weight: 400;
-  font-style: normal;
-  font-size: 80%;
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-/* Base Brand Kit design principles - rhythm, not rainbow */
-.base-accent {
-  color: var(--primary);
-}
-
-.base-accent-bg {
-  background-color: var(--primary);
-  color: var(--primary-foreground);
-}
-
-/* Utility classes for Base Brand Kit */
-.text-base-blue { color: #0000ff; }
-.bg-base-blue { background-color: #0000ff; }
-.border-base-blue { border-color: #0000ff; }
-
-/* Component base styles */
-.card {
-  background-color: var(--card);
-  color: var(--card-foreground);
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-}
-
-.button-primary {
-  background-color: var(--primary);
-  color: var(--primary-foreground);
-  border: 1px solid var(--primary);
-}
-
-.button-secondary {
-  background-color: var(--secondary);
-  color: var(--secondary-foreground);
-  border: 1px solid var(--border);
-}
-
-.input {
-  background-color: var(--input);
-  color: var(--foreground);
-  border: 1px solid var(--border);
-}
-
-/* Focus states with Base Blue */
+/* Focus ring utility */
 .focus-ring:focus {
-  outline: 2px solid #0000ff;
-  outline-offset: 2px;
+  @apply outline-none ring-2 ring-ring ring-offset-2;
 }

@@ -150,7 +150,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 }
 
 /**
- * Clear admin session and log the action
+ * 🔧 FIXED: Clear admin session with matching cookie options
  */
 export async function clearAdminSession() {
   try {
@@ -167,18 +167,34 @@ export async function clearAdminSession() {
       }
     }
     
-    // Clear the secure cookie
+    // 🚨 CRITICAL FIX: Use the same options when deleting the cookie
+    // The cookie must be deleted with the same path, domain, secure, sameSite options
+    cookieStore.set('admin-session', '', {
+      ...SECURE_COOKIE_OPTIONS,
+      maxAge: 0, // Expire immediately
+      expires: new Date(0), // Also set expires to past date for compatibility
+    })
+    
+    // Also try the simple delete method as a fallback
     cookieStore.delete('admin-session')
+    
   } catch (error) {
     console.error('Failed to clear admin session:', error)
   }
 }
 
 /**
- * Logout admin and redirect to home
+ * 🔧 IMPROVED: Logout admin with better cookie clearing and redirect
  */
 export async function logoutAdmin() {
+  // Clear the session first
   await clearAdminSession()
+  
+  // Add a small delay to ensure cookie is cleared before redirect
+  // In server actions, this happens synchronously, but being extra safe
+  await new Promise(resolve => setTimeout(resolve, 100))
+  
+  // Redirect to home page
   redirect('/')
 }
 
@@ -216,3 +232,4 @@ export async function checkAddressAuthorization(address: string): Promise<{ isAu
 // 4. ✅ Use IP-based rate limiting instead of address-based
 // 5. ✅ More informative logging for debugging
 // 6. ✅ Reduced wait times (10 minutes vs 15 minutes)
+// 7. 🚨 FIXED: Proper cookie deletion with matching options
