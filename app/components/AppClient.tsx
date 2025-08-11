@@ -106,7 +106,7 @@ export function AppClient({ initialCasts }: AppClientProps) {
               BasedChats
             </h1>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <Wallet className="z-10">
               <ConnectWallet className='bg-[#0000ff] hover:bg-black dark:hover:bg-white text-white hover:text-black dark:hover:text-white'>
@@ -133,8 +133,8 @@ export function AppClient({ initialCasts }: AppClientProps) {
               Discover active group chats on the Base App, curated by the Base community. Connect with builders, creators, and innovators in the onchain ecosystem.
             </p>
           </div>
-          
-          <CastFeed 
+
+          <CastFeed
             casts={casts}
             loading={isPending}
             error={error ?? undefined}
@@ -156,10 +156,11 @@ export function AppClient({ initialCasts }: AppClientProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="flex flex-col text-muted-foreground hover:text-foreground"
+              className="flex flex-col sm:flex-row text-muted-foreground hover:text-foreground"
               onClick={() => openUrl("https://base4everything.xyz/")}
             >
-              Base is for{' '}<span className="inline-block whitespace-nowrap">[ Everything ]</span>
+              <span>Base is for{' '}</span>
+              <span className="whitespace-nowrap">[ Everything ]</span>
             </Button>
           </div>
         </footer>
