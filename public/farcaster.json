@@ -27,6 +27,6 @@
     "ogTitle": "BasedChats - Join Group Chats",
     "ogDescription": "Discover active group chats on Farcaster, curated by the Base community.",
     "ogImageUrl": "https://basedchats.vercel.app/images/hero.png",
-    "noindex": true
+    "noindex": false
   }
 }

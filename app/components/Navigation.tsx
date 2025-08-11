@@ -43,7 +43,7 @@ export function Navigation({ isAdmin }: NavigationProps) {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-sm">
       <div className="max-w-md mx-auto px-4 py-2">
         <div className="flex items-center justify-between">
           {navItems.map((item) => {
