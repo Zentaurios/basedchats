@@ -156,7 +156,7 @@ export function AppClient({ initialCasts }: AppClientProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="text-muted-foreground hover:text-foreground"
+              className="flex flex-col text-muted-foreground hover:text-foreground"
               onClick={() => openUrl("https://base4everything.xyz/")}
             >
               Base is for{' '}<span className="inline-block whitespace-nowrap">[ Everything ]</span>
